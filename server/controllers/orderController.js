@@ -10,47 +10,72 @@ const razorpay = new Razorpay({
 });
 
 exports.createOrder = async (req, res) => {
-  const { productId } = req.body;
-  const product = await Product.findById(productId);
-  if (!product) return res.status(404).json({ error: 'Product not found' });
+  try {
+    const { productId } = req.body;
+    if (!productId) return res.status(400).json({ error: 'Product ID is required' });
 
-  const options = {
-    amount: product.price * 100, // in paise
-    currency: 'INR',
-    receipt: `receipt_order_${Date.now()}`
-  };
-  const order = await razorpay.orders.create(options);
-  res.json({ orderId: order.id, amount: order.amount, currency: order.currency });
+    const product = await Product.findById(productId);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    const options = {
+      amount: product.price * 100,
+      currency: 'INR',
+      receipt: `receipt_order_${Date.now()}`
+    };
+
+    const order = await razorpay.orders.create(options);
+    res.json({ orderId: order.id, amount: order.amount, currency: order.currency });
+  } catch (error) {
+    console.error('Error in createOrder:', error);
+    res.status(500).json({ error: 'Failed to create Razorpay order' });
+  }
 };
 
 exports.verifyAndSaveOrder = async (req, res) => {
-  const { razorpay_payment_id, razorpay_order_id, productId } = req.body;
-  const { uid, name, email } = req.user;
+  try {
+    const { razorpay_payment_id, razorpay_order_id, productId } = req.body;
+    if (!razorpay_payment_id || !razorpay_order_id || !productId) {
+      return res.status(400).json({ error: 'Missing payment or product information' });
+    }
 
-  // Find or create user
-  let user = await User.findOne({ uid });
-  if (!user) user = await User.create({ uid, name, email });
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized: user not authenticated' });
+    }
 
-  const product = await Product.findById(productId);
-  if (!product) return res.status(404).json({ error: 'Product not found' });
+    const { uid, name, email } = req.user;
 
-  // Save order
-  const order = await Order.create({
-    user: user._id,
-    product: product._id,
-    paymentId: razorpay_payment_id,
-    amount: product.price
-  });
+    let user = await User.findOne({ uid });
+    if (!user) user = await User.create({ uid, name, email });
 
-  // Send email to super admin
-  await sendPaymentNotification({ user, product, amount: product.price });
+    const product = await Product.findById(productId);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
 
-  res.json({ success: true });
+    const order = await Order.create({
+      user: user._id,
+      product: product._id,
+      paymentId: razorpay_payment_id,
+      amount: product.price
+    });
+
+    await sendPaymentNotification({ user, product, amount: product.price });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error in verifyAndSaveOrder:', error);
+    res.status(500).json({ error: 'Failed to process payment and save order' });
+  }
 };
 
 exports.getAllOrders = async (req, res) => {
-  // Only allow super admin (by email)
-  if (req.user.email !== process.env.SUPER_ADMIN_EMAIL) return res.status(403).json({ error: 'Forbidden' });
-  const orders = await Order.find().populate('user').populate('product');
-  res.json(orders);
+  try {
+    if (!req.user || req.user.email !== process.env.SUPER_ADMIN_EMAIL) {
+      return res.status(403).json({ error: 'Forbidden: Super Admin only' });
+    }
+
+    const orders = await Order.find().populate('user').populate('product');
+    res.json(orders);
+  } catch (error) {
+    console.error('Error in getAllOrders:', error);
+    res.status(500).json({ error: 'Failed to retrieve orders' });
+  }
 };

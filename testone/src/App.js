@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import { auth, provider, signInWithPopup, signOut, onAuthStateChanged } from "./firebase";
-import Home from "./Home";
+
+import Home from "./pages/Home";
+
 import AdminDashboard from "./AdminDashboard";
+import { useNavigate } from "react-router-dom";
 
 function App() {
   const [user, setUser] = useState(null);
   const [idToken, setIdToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // Listen for auth state changes
   useEffect(() => {
@@ -23,11 +27,12 @@ function App() {
         });
         setUser(user);
         try {
-          const token = await user.getIdToken();
-          setIdToken(token);
-          localStorage.setItem("idToken", token);
-          localStorage.setItem("user", JSON.stringify(user));
-          console.log("Token set successfully");
+
+          // const token = await user.getIdToken();
+          // setIdToken(token);
+          // localStorage.setItem("idToken", token);
+          // localStorage.setItem("user", JSON.stringify(user));
+          // console.log("Token set successfully");
         } catch (error) {
           console.error("Error getting token:", error);
         }
@@ -52,12 +57,18 @@ function App() {
       console.log("Login result user:", result.user);
       
       setUser(result.user);
-      const token = await result.user.getIdToken();
+
+      /********  here write a code to */
+      // const token = await result.user.getIdToken();
+      const token = "abc";
       setIdToken(token);
-      localStorage.setItem("idToken", token);
-      localStorage.setItem("user", JSON.stringify(result.user));
+localStorage.setItem("idToken", token);
+localStorage.setItem("user", JSON.stringify(result.user));
+navigate("/");
+
     } catch (error) {
-      console.error("Login error details:", {       code: error.code,
+      console.error("Login error details:", {       
+        code: error.code,
         message: error.message,
         email: error.email,
         credential: error.credential
@@ -107,7 +118,7 @@ function App() {
   }
 
   return (
-    <Router>
+ 
       <div className="min-h-screen bg-gray-100">
         <nav className="flex justify-between items-center p-4 bg-white shadow">
           <h1 className="text-xl font-bold">E-Commerce</h1>
@@ -134,7 +145,7 @@ function App() {
           />
         </Routes>
       </div>
-    </Router>
+ 
   );
 }
 
